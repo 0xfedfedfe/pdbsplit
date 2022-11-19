@@ -1,0 +1,3 @@
+[submodule "external/raw_pdb"]
+	path = external/raw_pdb
+	url = https://github.com/0xfedfedfe/raw_pdb.git
