@@ -18,7 +18,3 @@ void read_pdb_contributions(
 
 void hack_pdb_contributions(
 	std::vector<s_section_contribution>& contributions);
-
-void verify_pdb_contributions(
-	const std::vector<s_section_contribution>& contributions,
-	const COFFI::coffi& exe_file);

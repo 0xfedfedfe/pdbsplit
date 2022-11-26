@@ -36,7 +36,7 @@ void read_pdb_contributions(
 	}
 }
 
-// Because nothing is perfect. #TODO: In the future, catch these properly with a herustic.
+// nothing is perfect. #TODO: In the future, catch these properly with a herustic.
 void hack_pdb_contributions(
 	std::vector<s_section_contribution>& contributions)
 {
@@ -97,21 +97,4 @@ void hack_pdb_contributions(
 		{
 			return lhs.rva < rhs.rva;
 		});
-}
-
-void verify_pdb_contributions(
-	const std::vector<s_section_contribution>& contributions,
-	const COFFI::coffi& exe_file)
-{
-	//const COFFI::sections& sections = exe_file.get_sections();
-	//
-	//for (const s_section_contribution& contribution : contributions)
-	//{
-	//	const COFFI::section* section = sections[contribution.debug_image_section_index-1];
-	//	assert(section);
-	//
-	//	const uint8_t* data = reinterpret_cast<const uint8_t*>(section->get_data()) + contribution.debug_image_section_offset;
-	//	uint32_t crc = crc32(data, contribution.size);
-	//	assert(crc == contribution.data_crc);
-	//}
 }

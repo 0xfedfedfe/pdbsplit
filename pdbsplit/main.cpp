@@ -4,9 +4,9 @@ int main(int argc, char* argv[])
 {
 	assert(argc == 4);
 
-	COFFI::coffi exe_file;
-	assert(exe_file.load(argv[1]));
-	assert(exe_file.get_architecture() == COFFI::COFFI_ARCHITECTURE_PE);
+	s_memory_mapped_file_handle exe_file;
+	exe_file = open_memmapped_file(argv[1]);
+	c_exe_reader exe_reader(exe_file.base_address);
 
 	s_memory_mapped_file_handle pdb_file;
 	pdb_file = open_memmapped_file(argv[2]);
@@ -18,24 +18,24 @@ int main(int argc, char* argv[])
 	std::vector<s_section_contribution> contributions;
 	read_pdb_contributions(contributions, raw_pdb_file, dbi_stream);
 	hack_pdb_contributions(contributions);
-	verify_pdb_contributions(contributions, exe_file);
 
 	std::vector<s_public_symbol> symbols;
 	read_pdb_symbols(symbols, raw_pdb_file, dbi_stream);
+	hack_pdb_names(symbols);
 
 	std::vector<uint32_t> reloc_rvas;
-	const COFFI::sections& exe_sections = exe_file.get_sections();
-	read_exe_relocations(reloc_rvas, exe_sections[exe_sections.size()-1]);
+	read_exe_relocations(reloc_rvas, exe_reader.get_address(exe_reader.get_num_sections()-1));
 
 	std::vector<s_chunk> chunks;
-	populate_chunks(chunks, symbols, contributions, reloc_rvas, exe_file, raw_pdb_file, dbi_stream);
-
+	populate_chunks(chunks, symbols, contributions, reloc_rvas, exe_reader, raw_pdb_file, dbi_stream);
 	const PDB::ModuleInfoStream module_info_stream = dbi_stream.CreateModuleInfoStream(raw_pdb_file);
-	dump_chunks(chunks, module_info_stream);
+	analyise_chunk_usage(chunks);
 
-	write_all_objects(argv[3], chunks, raw_pdb_file, dbi_stream);
+	//dump_chunks(chunks, module_info_stream);
+	write_all_objects(argv[3], chunks, raw_pdb_file, dbi_stream, exe_reader);
 
 	close_memmapped_file(pdb_file);
+	close_memmapped_file(exe_file);
 
 	return EXIT_SUCCESS;
 }

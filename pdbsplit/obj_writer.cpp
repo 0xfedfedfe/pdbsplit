@@ -1,15 +1,102 @@
 #include "pdbsplit-private-pch.h"
 
-static inline void populate_coff(
+struct s_coff_symbol
+{
+	uint32_t original_rva;
+	uint32_t obj_offset;
+
+	const char* name;
+	uint32_t flags;
+	bool is_public;
+};
+
+struct s_coff_relocation
+{
+	uint32_t dest_chunk_rva;
+	uint32_t dest_chunk_offset;
+	uint32_t obj_offset;
+};
+
+struct s_coff_section_data
+{
+	uint16_t original_debug_image_section_index;
+	std::vector<uint8_t> data;
+	std::vector<s_coff_symbol> symbols;
+	std::vector<s_coff_relocation> relocations;
+};
+
+struct s_coff_data
+{
+	s_coff_section_data* get_section(size_t debug_image_section_index)
+	{
+		for (s_coff_section_data& section : sections)
+		{
+			if (section.original_debug_image_section_index == debug_image_section_index)
+			{
+				return &section;
+			}
+		}
+
+		return nullptr;
+	}
+
+	std::vector<s_coff_section_data> sections;
+};
+
+static inline void populate_obj(
+	s_coff_data& data,
+	const std::vector<s_chunk>& chunks,
 	const std::vector<const s_chunk*> candidate_chunks,
 	const PDB::ArrayView<PDB::IMAGE_SECTION_HEADER> pdb_sections,
-	COFFI::coffi& writer)
+	const c_exe_reader& exe_reader)
 {
-	writer.get_header()->set_flags(IMAGE_FILE_32BIT_MACHINE | IMAGE_FILE_LINE_NUMS_STRIPPED);
+	//writer.get_header()->set_flags(IMAGE_FILE_32BIT_MACHINE | IMAGE_FILE_LINE_NUMS_STRIPPED);
 
 	for (const s_chunk* chunk : candidate_chunks)
 	{
+		s_coff_section_data* section = data.get_section(chunk->debug_image_section_index);
+		if (!section)
+		{
+			s_coff_section_data new_section
+			{
+				chunk->debug_image_section_index
+			};
 
+			data.sections.push_back(new_section);
+			section = &data.sections[data.sections.size()-1];
+		}
+
+		uint32_t base_offset = section->data.size();
+
+		for (const s_chunk_name_offset& name : chunk->names)
+		{
+			s_coff_symbol symbol
+			{
+				chunk->rva + name.offset,
+				base_offset + name.offset,
+
+				name.string.data(),
+				chunk->characteristics,
+				name.is_public
+			};
+
+			section->symbols.push_back(symbol);
+		}
+
+		for (const s_chunk_reloc_reference& reloc : chunk->relocations)
+		{
+			s_coff_relocation relocation
+			{
+				reloc.chunk_rva,
+				reloc.chunk_offset,
+				base_offset + reloc.offset
+			};
+
+			section->relocations.push_back(relocation);
+		}
+
+		section->data.resize(base_offset + chunk->size);
+		memcpy(&section->data[base_offset], exe_reader.get_address(chunk->debug_image_section_index-1, chunk->debug_image_section_offset), chunk->size);
 	}
 }
 
@@ -17,7 +104,8 @@ void write_all_objects(
 	const char* output_directory,
 	const std::vector<s_chunk>& chunks,
 	const PDB::RawFile& raw_pdb_file,
-	const PDB::DBIStream& dbi_stream)
+	const PDB::DBIStream& dbi_stream,
+	const c_exe_reader& exe_reader)
 {
 	const PDB::ImageSectionStream image_section_stream = dbi_stream.CreateImageSectionStream(raw_pdb_file);
 	PDB::ArrayView<PDB::IMAGE_SECTION_HEADER> pdb_sections = image_section_stream.GetImageSections();
@@ -29,6 +117,7 @@ void write_all_objects(
 	for (size_t i = 0; i < num_modules; i++)
 	{
 		const PDB::ModuleInfoStream::Module& module = pdb_modules[i];
+		// i have stopped caring
 		std::string object_name = module.GetName().Decay();
 		std::string library_name = module.GetObjectName().Decay();
 
@@ -81,9 +170,8 @@ void write_all_objects(
 			continue;
 		}
 
-		COFFI::coffi writer;
-		writer.create(COFFI::COFFI_ARCHITECTURE_PE);
-		populate_coff(candidate_chunks, pdb_sections, writer);
+		s_coff_data data;
+		populate_obj(data, chunks, candidate_chunks, pdb_sections, exe_reader);
 
 		if (!is_linker_common)
 		{
@@ -106,6 +194,7 @@ void write_all_objects(
 			library_name.c_str(),
 			is_linker_common ? "" : "/",
 			object_name.c_str());
-		writer.save(output_filepath);
+
+		//writer.save(output_filepath);
 	}
 }

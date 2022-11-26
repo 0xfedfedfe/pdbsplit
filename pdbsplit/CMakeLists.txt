@@ -26,8 +26,11 @@ add_executable(pdbsplit
 	exe_relocations.h
 	exe_relocations.cpp
 
-	coff_writer.h
-	coff_writer.cpp
+	exe_reader.h
+	exe_reader.cpp
+
+	obj_writer.h
+	obj_writer.cpp
 	
 	main.cpp)
 

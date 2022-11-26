@@ -10,11 +10,12 @@ struct s_chunk_reloc_reference
 	uint32_t chunk_offset;
 };
 
-// section contributions may hold multiple public names (afaik)
+// section contributions may hold multiple names
 struct s_chunk_name_offset
 {
-	std::string_view string;
+	std::string string;
 	uint32_t offset;
+	bool is_public;
 };
 
 struct s_chunk
@@ -40,9 +41,12 @@ void populate_chunks(
 	const std::vector<s_public_symbol>& symbols,
 	const std::vector<s_section_contribution>& contributions,
 	const std::vector<uint32_t>& reloc_rvas,
-	const COFFI::coffi& exe_file,
+	const c_exe_reader& exe_reader,
 	const PDB::RawFile& raw_pdb_file,
 	const PDB::DBIStream& dbi_stream);
+
+void analyise_chunk_usage(
+	std::vector<s_chunk>& chunks);
 
 void dump_chunks(
 	const std::vector<s_chunk>& chunks,
